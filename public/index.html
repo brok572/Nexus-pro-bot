@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus Bot Link</title>
+<style>
+body { font-family: Arial; background: #111; color: #fff; text-align: center; padding: 50px; }
+input, button { padding: 12px; margin: 10px; border-radius: 8px; border: none; font-size: 16px; }
+input { width: 250px; }
+button { background: #25D366; color: #fff; cursor: pointer; }
+#result { margin-top: 20px; }
+img { max-width: 300px; }
+</style>
+</head>
+<body>
+<h2>🔗 Nexus WhatsApp Bot</h2>
+<p>Weka number yako na link device</p>
+<input id="number" placeholder="255773001107">
+<button onclick="gen()">Generate</button>
+<div id="result"></div>
+
+<script>
+async function gen() {
+  document.getElementById('result').innerHTML = 'Inatengeneza...';
+  const res = await fetch('/generate', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({number: document.getElementById('number').value})
+  });
+  const data = await res.json();
+  if(data.error) return document.getElementById('result').innerHTML = data.error;
+  if(data.type === 'qr') document.getElementById('result').innerHTML = `<p>Scan hii:</p><img src="${data.data}">`;
+  if(data.type === 'code') document.getElementById('result').innerHTML = `<p>Pairing Code:</p><h1>${data.data}</h1>`;
+}
+</script>
+</body>
+</html>

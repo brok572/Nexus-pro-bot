@@ -5,12 +5,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nexus Bot Link</title>
 <style>
-body { font-family: Arial; background: #111; color: #fff; text-align: center; padding: 50px; }
-input, button { padding: 12px; margin: 10px; border-radius: 8px; border: none; font-size: 16px; }
+body {
+  font-family: Arial;
+  background: #111;
+  color: #fff;
+  text-align: center;
+  padding: 50px;
+}
+input, button {
+  padding: 12px;
+  margin: 10px;
+  border-radius: 8px;
+  border: none;
+  font-size: 16px;
+}
 input { width: 250px; }
-button { background: #25D366; color: #fff; cursor: pointer; }
+button {
+  background: #25D366;
+  color: #fff;
+  cursor: pointer;
+  font-weight: bold;
+}
+button:hover { background: #20b858; }
 #result { margin-top: 20px; }
-img { max-width: 300px; }
+img { max-width: 300px; border-radius: 10px; }
+h1 { color: #25D366; letter-spacing: 3px; }
 </style>
 </head>
 <body>
@@ -22,16 +41,27 @@ img { max-width: 300px; }
 
 <script>
 async function gen() {
+  const num = document.getElementById('number').value;
+  if(!num) return alert('Weka number');
   document.getElementById('result').innerHTML = 'Inatengeneza...';
+
   const res = await fetch('/generate', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({number: document.getElementById('number').value})
+    body: JSON.stringify({number: num})
   });
+
   const data = await res.json();
-  if(data.error) return document.getElementById('result').innerHTML = data.error;
-  if(data.type === 'qr') document.getElementById('result').innerHTML = `<p>Scan hii:</p><img src="${data.data}">`;
-  if(data.type === 'code') document.getElementById('result').innerHTML = `<p>Pairing Code:</p><h1>${data.data}</h1>`;
+  if(data.error) {
+    document.getElementById('result').innerHTML = `<p style="color:red">${data.error}</p>`;
+    return;
+  }
+  if(data.type === 'qr') {
+    document.getElementById('result').innerHTML = `<p>Scan QR hii kwenye WhatsApp:</p><img src="${data.data}">`;
+  }
+  if(data.type === 'code') {
+    document.getElementById('result').innerHTML = `<p>Pairing Code:</p><h1>${data.data}</h1><p>Nenda WhatsApp > Linked Devices > Link with phone number</p>`;
+  }
 }
 </script>
 </body>

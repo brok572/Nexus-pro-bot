@@ -12,6 +12,10 @@ app.use(express.static('public'));
 const PORT = process.env.PORT || 3000;
 let sock;
 
+// Hakikisha folder ya sessions ipo
+const SESSION_DIR = '/sessions';
+fs.mkdirSync(SESSION_DIR, { recursive: true });
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -20,9 +24,7 @@ app.post('/generate', async (req, res) => {
   const number = req.body.number.replace(/[^0-9]/g, '');
   if (!number) return res.json({ error: 'Weka number sawa' });
 
-  const sessionPath = `./sessions/${number}`;
-  if (!fs.existsSync('./sessions')) fs.mkdirSync('./sessions');
-
+  const sessionPath = `${SESSION_DIR}/${number}`;
   const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
 
   sock = makeWASocket({
@@ -39,13 +41,13 @@ app.post('/generate', async (req, res) => {
   sock.ev.on('connection.update', async (update) => {
     const { connection, qr, pairingCode } = update;
 
-    if (qr &&!sent) {
+    if (qr && !sent) {
       sent = true;
       const qrImage = await qrcode.toDataURL(qr);
       return res.json({ type: 'qr', data: qrImage });
     }
 
-    if (pairingCode &&!sent) {
+    if (pairingCode && !sent) {
       sent = true;
       const formattedCode = pairingCode.match(/.{1,4}/g).join('-');
       return res.json({ type: 'code', data: formattedCode });
@@ -63,13 +65,6 @@ app.post('/generate', async (req, res) => {
 
 > Developed By Nexus`
       });
-    }
-
-    if (connection === 'close') {
-      const reason = update.lastDisconnect?.error?.output?.statusCode;
-      if (reason!== DisconnectReason.loggedOut) {
-        console.log('Disconnected, will reconnect');
-      }
     }
   });
 

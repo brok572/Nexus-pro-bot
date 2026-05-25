@@ -11,7 +11,6 @@ app.use(express.static('public'));
 
 const PORT = process.env.PORT || 3000;
 let sock;
-let connected = false;
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -22,30 +21,37 @@ app.post('/generate', async (req, res) => {
   if (!number) return res.json({ error: 'Weka number sawa' });
 
   const sessionPath = `./sessions/${number}`;
+  if (!fs.existsSync('./sessions')) fs.mkdirSync('./sessions');
+
   const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
 
   sock = makeWASocket({
     auth: state,
     printQRInTerminal: false,
-    browser: ['Nexus-Bot', 'Chrome', '1.0.0']
+    browser: ['Nexus-Bot', 'Chrome', '1.0.0'],
+    generateHighQualityLinkPreview: true
   });
+
+  let sent = false;
 
   sock.ev.on('creds.update', saveCreds);
 
   sock.ev.on('connection.update', async (update) => {
-    const { connection, lastDisconnect, qr, pairingCode } = update;
+    const { connection, qr, pairingCode } = update;
 
-    if (qr) {
+    if (qr &&!sent) {
+      sent = true;
       const qrImage = await qrcode.toDataURL(qr);
       return res.json({ type: 'qr', data: qrImage });
     }
 
-    if (pairingCode) {
-      return res.json({ type: 'code', data: pairingCode });
+    if (pairingCode &&!sent) {
+      sent = true;
+      const formattedCode = pairingCode.match(/.{1,4}/g).join('-');
+      return res.json({ type: 'code', data: formattedCode });
     }
 
     if (connection === 'open') {
-      connected = true;
       await sock.sendMessage(sock.user.id, {
         image: { url: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcThRzog1q5GKsoEeA_yy2lwJEEnIappP2JrOzlPF25LoA&s=10' },
         caption: `╭◆ 𝐍𝐞𝐱𝐮𝐬 𝐌𝐢𝐧-𝐁𝐨𝐭
@@ -60,23 +66,28 @@ app.post('/generate', async (req, res) => {
     }
 
     if (connection === 'close') {
-      connected = false;
-      const shouldReconnect = lastDisconnect?.error?.output?.statusCode!== DisconnectReason.loggedOut;
-      console.log('Disconnected, reconnecting:', shouldReconnect);
+      const reason = update.lastDisconnect?.error?.output?.statusCode;
+      if (reason!== DisconnectReason.loggedOut) {
+        console.log('Disconnected, will reconnect');
+      }
     }
   });
 
-  try {
-    await sock.requestPairingCode(number);
-  } catch (e) {
-    res.json({ error: e.message });
-  }
-});
+  setTimeout(async () => {
+    try {
+      if (!sock.authState.creds.registered) {
+        await sock.requestPairingCode(number);
+      }
+    } catch (e) {
+      if (!sent) res.json({ error: e.message });
+    }
+  }, 2000);
 
-sock?.ev.on('messages.upsert', async ({ messages }) => {
-  const msg = messages[0];
-  if (!msg.message || msg.key.fromMe) return;
-  await handleCommand(sock, msg);
+  sock.ev.on('messages.upsert', async ({ messages }) => {
+    const msg = messages[0];
+    if (!msg.message || msg.key.fromMe) return;
+    await handleCommand(sock, msg);
+  });
 });
 
 app.listen(PORT, () => console.log(`Server running on ${PORT}`));
